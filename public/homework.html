@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homework — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="homework">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">Homework</div>
+    <h1>Real assignments, real feedback</h1>
+    <p>Pick a topic, get a short AI-generated question, write your answer, and get feedback — like a teacher checking your work.</p>
+  </div>
+
+  <div id="loginPrompt" class="card" style="display:none;max-width:480px;">
+    <h3 style="font-size:17px;margin-bottom:8px;">Login to do homework</h3>
+    <p style="font-size:14px;margin:0 0 16px;">Your submissions and points are saved to your account.</p>
+    <a class="btn btn-primary" href="/login.html">Login →</a>
+  </div>
+
+  <div id="hwApp" style="display:none;">
+    <div class="hw-topics" id="hwTopics"></div>
+
+    <div id="assignmentArea"></div>
+
+    <h3 style="font-size:16px;margin:34px 0 14px;color:var(--paper-2);">Your past submissions</h3>
+    <div id="hwHistory"></div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — AI feedback is a learning aid, not a substitute for teacher grading.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const TOPICS = ["Water Conservation","Waste Management","Air Pollution","Renewable Energy","Biodiversity Loss","Climate Change"];
+let currentAssignment = null;
+
+const TOPIC_SYSTEM = "You are a teacher setting a short homework question for Indian school/college students on a given environmental topic. Write ONE specific, thought-provoking question (not a yes/no question) that requires 3-5 sentences to answer well. Keep it under 40 words. Output ONLY the question, nothing else.";
+const FEEDBACK_SYSTEM = "You are a supportive but honest teacher grading a student's short homework answer. Give 2-3 sentences of feedback in Hinglish: what they got right, one thing to improve or add, and keep it encouraging. Do not give a numeric grade. Max 70 words.";
+
+function renderTopics(){
+  const el = document.getElementById('hwTopics');
+  el.innerHTML = '';
+  TOPICS.forEach(topic=>{
+    const btn = document.createElement('button');
+    btn.className = 'hw-topic-btn';
+    btn.textContent = topic;
+    btn.onclick = ()=>generateAssignment(topic);
+    el.appendChild(btn);
+  });
+}
+
+async function generateAssignment(topic){
+  const area = document.getElementById('assignmentArea');
+  area.innerHTML = `<div class="hw-assignment"><span class="spinner"></span> Generating a question on ${topic}…</div>`;
+  let question = '';
+  try{
+    question = await callMitra(TOPIC_SYSTEM, "Topic: " + topic, 200);
+  }catch(err){
+    area.innerHTML = `<div class="hw-assignment">Could not generate a question — check that the server has a working ANTHROPIC_API_KEY.</div>`;
+    return;
+  }
+  currentAssignment = { topic, question };
+  area.innerHTML = `
+    <div class="hw-assignment">
+      <div style="font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--rust-2);font-weight:700;">${topic}</div>
+      <p style="font-size:16px;font-weight:600;margin:8px 0 18px;">${question}</p>
+      <textarea id="hwAnswer" placeholder="Apna jawab yahan likho…"></textarea>
+      <button class="btn btn-primary" style="margin-top:14px;" onclick="submitHomework()" id="hwSubmitBtn">Submit (+8 points)</button>
+      <div id="hwFeedbackBox"></div>
+    </div>`;
+}
+
+async function submitHomework(){
+  const answer = document.getElementById('hwAnswer').value.trim();
+  if(!answer){ alert('Pehle apna jawab likho.'); return; }
+  const btn = document.getElementById('hwSubmitBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Checking…';
+
+  let aiFeedback = '';
+  try{
+    aiFeedback = await callMitra(FEEDBACK_SYSTEM, `Question: ${currentAssignment.question}\nStudent's answer: ${answer}`, 300);
+  }catch(err){
+    aiFeedback = 'Feedback load nahi ho paya, lekin tumhara jawab save ho gaya.';
+  }
+  document.getElementById('hwFeedbackBox').innerHTML = `<div class="hw-feedback">${aiFeedback}</div>`;
+
+  try{
+    await apiPost('/api/homework', { topic: currentAssignment.topic, question: currentAssignment.question, answer, aiFeedback });
+    loadHistory();
+  }catch(err){ alert(err.message); }
+
+  btn.disabled = false; btn.textContent = 'Submitted ✓';
+}
+
+async function loadHistory(){
+  const res = await apiGet('/api/homework');
+  const el = document.getElementById('hwHistory');
+  el.innerHTML = '';
+  if(res.list.length === 0){
+    el.innerHTML = '<p style="color:var(--mist);font-size:13.5px;">No submissions yet.</p>';
+    return;
+  }
+  res.list.forEach(h=>{
+    const d = document.createElement('div');
+    d.className = 'hw-history-item';
+    d.innerHTML = `<div class="topic">${h.topic}</div><div style="margin:6px 0;font-weight:600;">${h.question}</div><div style="color:var(--mist);">${h.answer}</div>`;
+    el.appendChild(d);
+  });
+}
+
+(async ()=>{
+  try{
+    const me = await apiGet('/api/me');
+    if(!me.user){
+      document.getElementById('loginPrompt').style.display = 'block';
+      return;
+    }
+    document.getElementById('hwApp').style.display = 'block';
+    renderTopics();
+    loadHistory();
+  }catch(e){
+    document.getElementById('loginPrompt').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>

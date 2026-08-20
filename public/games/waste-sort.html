@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waste Sorting Sprint — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="games">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">Waste Sorting Sprint</div>
+    <h1>Sort each item into the right bin</h1>
+    <p>Wrong sorting in real life ruins recycling batches — practice here with zero real-world consequences.</p>
+  </div>
+
+  <div class="game-shell">
+    <div id="gameIntro" class="game-intro">
+      <div style="font-size:52px;margin-bottom:10px;">🗑️</div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(16,26,20,0.7);max-width:440px;margin:0 auto 18px;">
+        18 rounds. Sort each waste item into <b>Wet</b>, <b>Dry</b>, or <b>Hazardous</b>. Game ends after 3 mistakes.
+      </p>
+      <div class="game-legend">
+        <span><span class="legend-dot" style="background:#4F7256;"></span>Wet / Organic</span>
+        <span><span class="legend-dot" style="background:#3B6FA0;"></span>Dry / Recyclable</span>
+        <span><span class="legend-dot" style="background:#B24428;"></span>Hazardous / E-waste</span>
+      </div>
+      <button class="btn btn-primary" onclick="startGame()">Start Game →</button>
+      <div style="margin-top:16px;font-size:12px;color:rgba(16,26,20,0.5);" id="highScoreLabel"></div>
+    </div>
+
+    <div id="gamePlay" style="display:none;">
+      <div class="game-hud">
+        <div class="game-stat">SCORE<b id="gameScore">0</b></div>
+        <div class="game-stat">STREAK<b id="gameStreak">0</b></div>
+        <div class="game-hearts" id="gameHearts">❤️❤️❤️</div>
+      </div>
+      <div class="game-item-card">
+        <div class="game-item-emoji" id="gameItemEmoji">🍌</div>
+        <div class="game-item-name" id="gameItemName">Banana Peel</div>
+      </div>
+      <div class="bin-row">
+        <button class="bin-btn wet" onclick="answerGame('wet')"><span class="bin-emoji">🟢</span>Wet</button>
+        <button class="bin-btn dry" onclick="answerGame('dry')"><span class="bin-emoji">🔵</span>Dry</button>
+        <button class="bin-btn hazardous" onclick="answerGame('hazardous')"><span class="bin-emoji">🔴</span>Hazardous</button>
+      </div>
+      <div class="game-feedback" id="gameFeedback"></div>
+    </div>
+
+    <div id="gameEnd" class="game-end" style="display:none;">
+      <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(16,26,20,0.5);">Final Score</div>
+      <div class="score-big" id="gameFinalScore">0</div>
+      <p style="font-size:14px;color:rgba(16,26,20,0.65);margin:10px 0 20px;" id="gameEndMsg"></p>
+      <div id="gameEndNote" style="font-size:12.5px;color:rgba(16,26,20,0.5);margin-bottom:16px;"></div>
+      <button class="btn btn-primary" onclick="startGame()">Play Again</button>
+      <a class="btn btn-ghost" style="margin-left:10px;" href="/games/">All Games</a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — this game works fully offline.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const GAME_ITEMS = [
+  { name:"Banana Peel", emoji:"🍌", bin:"wet" }, { name:"Potato Peel", emoji:"🥔", bin:"wet" },
+  { name:"Tea Leaves", emoji:"🍵", bin:"wet" }, { name:"Eggshell", emoji:"🥚", bin:"wet" },
+  { name:"Leftover Rice", emoji:"🍚", bin:"wet" }, { name:"Wilted Flowers", emoji:"🥀", bin:"wet" },
+  { name:"Vegetable Peels", emoji:"🥕", bin:"wet" }, { name:"Fruit Rind", emoji:"🍊", bin:"wet" },
+  { name:"Coffee Grounds", emoji:"☕", bin:"wet" }, { name:"Garden Leaves", emoji:"🍂", bin:"wet" },
+  { name:"Newspaper", emoji:"📰", bin:"dry" }, { name:"Plastic Bottle", emoji:"🧴", bin:"dry" },
+  { name:"Cardboard Box", emoji:"📦", bin:"dry" }, { name:"Glass Bottle", emoji:"🍾", bin:"dry" },
+  { name:"Aluminium Can", emoji:"🥫", bin:"dry" }, { name:"Plastic Bag", emoji:"🛍️", bin:"dry" },
+  { name:"Milk Carton", emoji:"🧃", bin:"dry" }, { name:"Old Notebook", emoji:"📓", bin:"dry" },
+  { name:"Broken Plastic Toy", emoji:"🧸", bin:"dry" }, { name:"Metal Scrap", emoji:"🔩", bin:"dry" },
+  { name:"Used Battery", emoji:"🔋", bin:"hazardous" }, { name:"Expired Medicine", emoji:"💊", bin:"hazardous" },
+  { name:"Broken Thermometer", emoji:"🌡️", bin:"hazardous" }, { name:"Old Mobile Phone", emoji:"📱", bin:"hazardous" },
+  { name:"CFL Bulb", emoji:"💡", bin:"hazardous" }, { name:"Paint Can", emoji:"🎨", bin:"hazardous" },
+  { name:"Used Syringe", emoji:"💉", bin:"hazardous" }, { name:"Nail Polish Bottle", emoji:"💅", bin:"hazardous" },
+  { name:"Pesticide Container", emoji:"☠️", bin:"hazardous" }, { name:"Sanitary Waste", emoji:"🩹", bin:"hazardous" }
+];
+const TOTAL_ROUNDS = 18;
+const MAX_LIVES = 3;
+let gs = { round:0, score:0, streak:0, lives:MAX_LIVES, currentItem:null, pool:[], active:false };
+
+function shuffledPool(){
+  const arr = GAME_ITEMS.slice();
+  for(let i = arr.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+async function refreshHighScoreLabel(){
+  const el = document.getElementById('highScoreLabel');
+  try{
+    const res = await apiGet('/api/game-score/waste-sort/best');
+    el.textContent = res.best > 0 ? ('Your best score: ' + res.best) : '';
+  }catch(e){ el.textContent = 'Login to save your high score.'; }
+}
+refreshHighScoreLabel();
+
+function startGame(){
+  gs = { round:0, score:0, streak:0, lives:MAX_LIVES, currentItem:null, pool:shuffledPool(), active:true };
+  document.getElementById('gameIntro').style.display = 'none';
+  document.getElementById('gameEnd').style.display = 'none';
+  document.getElementById('gamePlay').style.display = 'block';
+  updateHud();
+  nextItem();
+}
+function updateHud(){
+  document.getElementById('gameScore').textContent = gs.score;
+  document.getElementById('gameStreak').textContent = gs.streak;
+  document.getElementById('gameHearts').textContent = '❤️'.repeat(gs.lives) + '🤍'.repeat(MAX_LIVES - gs.lives);
+}
+function nextItem(){
+  if(gs.round >= TOTAL_ROUNDS || gs.lives <= 0){ finishGame(); return; }
+  if(gs.pool.length === 0) gs.pool = shuffledPool();
+  gs.currentItem = gs.pool.pop();
+  gs.round += 1;
+  document.getElementById('gameItemEmoji').textContent = gs.currentItem.emoji;
+  document.getElementById('gameItemName').textContent = gs.currentItem.name;
+}
+function answerGame(binChoice){
+  if(!gs.active || !gs.currentItem) return;
+  const item = gs.currentItem;
+  const fb = document.getElementById('gameFeedback');
+  if(binChoice === item.bin){
+    gs.score += 10 + gs.streak * 2;
+    gs.streak += 1;
+    fb.textContent = 'Correct! ' + item.name + ' → ' + item.bin;
+    fb.className = 'game-feedback correct';
+  } else {
+    gs.streak = 0;
+    gs.lives -= 1;
+    fb.textContent = 'Wrong — ' + item.name + ' actually goes in ' + item.bin;
+    fb.className = 'game-feedback wrong';
+  }
+  updateHud();
+  setTimeout(()=>{ fb.textContent=''; fb.className='game-feedback'; nextItem(); }, 700);
+}
+async function finishGame(){
+  gs.active = false;
+  document.getElementById('gamePlay').style.display = 'none';
+  document.getElementById('gameEnd').style.display = 'block';
+  document.getElementById('gameFinalScore').textContent = gs.score;
+  document.getElementById('gameEndMsg').textContent = gs.lives <= 0
+    ? "Three mistakes — no worries, try again!"
+    : "All " + TOTAL_ROUNDS + " rounds complete — great sorting!";
+  try{
+    const res = await apiPost('/api/game-score', { game:'waste-sort', score: gs.score });
+    document.getElementById('gameEndNote').textContent = `+${res.earned} eco-points earned. Best score: ${res.best}`;
+  }catch(e){
+    document.getElementById('gameEndNote').textContent = 'Login to save your score and earn eco-points.';
+  }
+}
+</script>
+</body>
+</html>

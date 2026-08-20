@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eco Memory Match — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="games">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">Eco Memory Match</div>
+    <h1>Flip, match, remember</h1>
+    <p>Match all 8 eco-icon pairs in as few moves as possible.</p>
+  </div>
+
+  <div class="game-shell">
+    <div id="memIntro" class="game-intro">
+      <div style="font-size:52px;margin-bottom:10px;">🃏</div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(16,26,20,0.7);max-width:440px;margin:0 auto 18px;">
+        16 cards, 8 pairs. Fewer moves and less time = higher score.
+      </p>
+      <button class="btn btn-primary" onclick="startMemory()">Start Game →</button>
+      <div style="margin-top:16px;font-size:12px;color:rgba(16,26,20,0.5);" id="highScoreLabel"></div>
+    </div>
+
+    <div id="memPlay" style="display:none;">
+      <div class="game-hud">
+        <div class="game-stat">MOVES<b id="memMoves">0</b></div>
+        <div class="game-stat">TIME<b id="memTime">0s</b></div>
+        <div class="game-stat">MATCHED<b id="memMatched">0/8</b></div>
+      </div>
+      <div class="memory-grid" id="memoryGrid"></div>
+    </div>
+
+    <div id="memEnd" class="game-end" style="display:none;">
+      <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(16,26,20,0.5);">Score</div>
+      <div class="score-big" id="memFinalScore">0</div>
+      <p style="font-size:14px;color:rgba(16,26,20,0.65);margin:10px 0 20px;" id="memEndMsg"></p>
+      <div id="memEndNote" style="font-size:12.5px;color:rgba(16,26,20,0.5);margin-bottom:16px;"></div>
+      <button class="btn btn-primary" onclick="startMemory()">Play Again</button>
+      <a class="btn btn-ghost" style="margin-left:10px;" href="/games/">All Games</a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — this game works fully offline.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const ICONS = ["🌱","♻️","💧","☀️","🌳","🦋","🌍","🐝"];
+let mem = { cards:[], flipped:[], matched:0, moves:0, startTime:0, timerId:null, locked:false };
+
+function shuffle(arr){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+async function refreshHighScoreLabel(){
+  const el = document.getElementById('highScoreLabel');
+  try{
+    const res = await apiGet('/api/game-score/memory/best');
+    el.textContent = res.best > 0 ? ('Your best score: ' + res.best) : '';
+  }catch(e){ el.textContent = 'Login to save your high score.'; }
+}
+refreshHighScoreLabel();
+
+function startMemory(){
+  const deck = shuffle(ICONS.concat(ICONS)).map((icon, i)=>({ id:i, icon, flipped:false, matched:false }));
+  mem = { cards: deck, flipped:[], matched:0, moves:0, startTime:Date.now(), locked:false };
+  document.getElementById('memIntro').style.display = 'none';
+  document.getElementById('memEnd').style.display = 'none';
+  document.getElementById('memPlay').style.display = 'block';
+  renderGrid();
+  updateHud();
+  if(mem.timerId) clearInterval(mem.timerId);
+  mem.timerId = setInterval(()=>{
+    document.getElementById('memTime').textContent = Math.floor((Date.now()-mem.startTime)/1000) + 's';
+  }, 500);
+}
+function updateHud(){
+  document.getElementById('memMoves').textContent = mem.moves;
+  document.getElementById('memMatched').textContent = mem.matched + '/8';
+}
+function renderGrid(){
+  const grid = document.getElementById('memoryGrid');
+  grid.innerHTML = '';
+  mem.cards.forEach(card=>{
+    const el = document.createElement('div');
+    el.className = 'memory-card' + (card.flipped ? ' flipped' : '') + (card.matched ? ' matched' : '');
+    el.textContent = (card.flipped || card.matched) ? card.icon : '';
+    el.onclick = ()=>flipCard(card.id);
+    grid.appendChild(el);
+  });
+}
+function flipCard(id){
+  if(mem.locked) return;
+  const card = mem.cards.find(c=>c.id===id);
+  if(!card || card.flipped || card.matched) return;
+  card.flipped = true;
+  mem.flipped.push(card);
+  renderGrid();
+
+  if(mem.flipped.length === 2){
+    mem.moves += 1;
+    updateHud();
+    const [a,b] = mem.flipped;
+    if(a.icon === b.icon){
+      a.matched = true; b.matched = true;
+      mem.matched += 1;
+      mem.flipped = [];
+      updateHud();
+      renderGrid();
+      if(mem.matched === 8) finishMemory();
+    } else {
+      mem.locked = true;
+      setTimeout(()=>{
+        a.flipped = false; b.flipped = false;
+        mem.flipped = [];
+        mem.locked = false;
+        renderGrid();
+      }, 700);
+    }
+  }
+}
+async function finishMemory(){
+  clearInterval(mem.timerId);
+  const seconds = Math.floor((Date.now()-mem.startTime)/1000);
+  const score = Math.max(10, 500 - mem.moves * 10 - seconds * 2);
+  document.getElementById('memPlay').style.display = 'none';
+  document.getElementById('memEnd').style.display = 'block';
+  document.getElementById('memFinalScore').textContent = score;
+  document.getElementById('memEndMsg').textContent = `Done in ${mem.moves} moves, ${seconds}s.`;
+  try{
+    const res = await apiPost('/api/game-score', { game:'memory', score });
+    document.getElementById('memEndNote').textContent = `+${res.earned} eco-points earned.`;
+  }catch(e){
+    document.getElementById('memEndNote').textContent = 'Login to save your score and earn eco-points.';
+  }
+}
+</script>
+</body>
+</html>

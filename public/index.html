@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoPaathshala — Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="home">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">A field guide, not a textbook</div>
+    <h1 id="greeting">Welcome to EcoPaathshala</h1>
+    <p>Chat with an AI tutor, log your daily habits, play eco-games, and take on real homework — all in one place.</p>
+  </div>
+
+  <div class="status-strip" id="statusStrip" style="display:none;">
+    <div>
+      <div class="pts" id="ptsDisplay">0</div>
+      <div class="badge-name" id="badgeName"></div>
+      <div class="badge-sub" id="badgeSub"></div>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <a class="nav-card" href="/mitra.html">
+      <div class="icon">🤖</div>
+      <h3>AI Mitra</h3>
+      <p>Ask any homework question or an environment doubt — Mitra explains it simply, like your own study assistant.</p>
+      <div class="go">Chat now →</div>
+    </a>
+    <a class="nav-card leaf" href="/tracker.html">
+      <div class="icon">📔</div>
+      <h3>Eco Tracker</h3>
+      <p>Log today's transport, plastic use, and resource habits — get honest AI feedback and earn points.</p>
+      <div class="go">Log today →</div>
+    </a>
+    <a class="nav-card turmeric" href="/games/">
+      <div class="icon">🎮</div>
+      <h3>Play &amp; Learn</h3>
+      <p>Multiple mini-games — waste sorting, eco quiz, memory match — learn by doing, not just reading.</p>
+      <div class="go">Play games →</div>
+    </a>
+    <a class="nav-card" href="/homework.html">
+      <div class="icon">📝</div>
+      <h3>Homework</h3>
+      <p>AI-generated assignments on real environmental topics, with feedback on your answers.</p>
+      <div class="go">See assignments →</div>
+    </a>
+    <a class="nav-card leaf" href="/issues.html">
+      <div class="icon">🗺️</div>
+      <h3>Local Issues</h3>
+      <p>Real environmental challenges from across India's states — not textbook theory.</p>
+      <div class="go">Explore →</div>
+    </a>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — a college mini-project, built for real habits and practical learning.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+function badgeSubText(b){
+  return b.next ? ('Next badge at ' + b.next + ' pts') : 'Top badge reached 🌳';
+}
+(async ()=>{
+  try{
+    const me = await apiGet('/api/me');
+    if(me.user){
+      document.getElementById('greeting').textContent = 'Welcome back, ' + me.user.name;
+      document.getElementById('statusStrip').style.display = 'flex';
+      document.getElementById('ptsDisplay').textContent = me.user.points;
+      document.getElementById('badgeName').textContent = me.user.badge.name;
+      document.getElementById('badgeSub').textContent = badgeSubText(me.user.badge);
+    }
+  }catch(e){ /* not logged in, ignore */ }
+})();
+</script>
+</body>
+</html>

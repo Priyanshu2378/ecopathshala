@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eco Tracker — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="tracker">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">Eco Tracker</div>
+    <h1>Log today's choices</h1>
+    <p>Every entry gets a short, honest AI response — not just "good job", but real context on the impact.</p>
+  </div>
+
+  <div id="loginPrompt" class="card" style="display:none;max-width:480px;">
+    <h3 style="font-size:17px;margin-bottom:8px;">Login to track your habits</h3>
+    <p style="font-size:14px;margin:0 0 16px;">Entries and points are saved to your account.</p>
+    <a class="btn btn-primary" href="/login.html">Login →</a>
+  </div>
+
+  <div id="trackerApp" style="display:none;">
+    <div class="tracker-grid">
+      <div class="form-card">
+        <div class="field">
+          <label>How did you get to college/school today?</label>
+          <div class="option-row" id="optTransport">
+            <button class="opt-btn" data-val="walk_cycle">Walk / Cycle</button>
+            <button class="opt-btn" data-val="public">Bus / Metro</button>
+            <button class="opt-btn" data-val="shared">Shared vehicle</button>
+            <button class="opt-btn" data-val="personal">Own bike/car (alone)</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Used single-use plastic today?</label>
+          <div class="option-row" id="optPlastic">
+            <button class="opt-btn" data-val="none">Not at all</button>
+            <button class="opt-btn" data-val="little">A little (1-2 times)</button>
+            <button class="opt-btn" data-val="lots">Quite a lot</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Mindful about electricity/water?</label>
+          <div class="option-row" id="optResource">
+            <button class="opt-btn" data-val="mindful">Yes, switched off / turned off tap</button>
+            <button class="opt-btn" data-val="normal">Normal day</button>
+            <button class="opt-btn" data-val="wasteful">Not sure, probably wasted some</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>One line — anything else? (optional)</label>
+          <input id="trackerNote" type="text" placeholder="e.g. tried a compost bin today"
+            style="width:100%;padding:11px 14px;border-radius:8px;border:1.5px solid rgba(16,26,20,0.18);font-family:'Work Sans',sans-serif;font-size:14px;">
+        </div>
+        <button class="btn btn-primary" onclick="submitTracker()" id="trackerSubmitBtn">Get AI feedback (+5 points)</button>
+      </div>
+
+      <div class="status-strip" style="flex-direction:column; align-items:stretch; gap:16px;">
+        <div>
+          <div class="pts" id="ptsDisplay">0</div>
+          <div class="badge-name" id="badgeName">Beej (Seed)</div>
+          <div class="badge-sub" id="badgeSub"></div>
+        </div>
+        <div class="feedback-box" id="feedbackBox">Submit your first entry — AI feedback will appear here.</div>
+        <div>
+          <div class="history-label">Recent entries</div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — a college mini-project, built for real habits.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const selections = { transport:null, plastic:null, resource:null };
+['optTransport','optPlastic','optResource'].forEach(id=>{
+  document.getElementById(id).addEventListener('click', e=>{
+    const btn = e.target.closest('.opt-btn');
+    if(!btn) return;
+    const group = e.currentTarget;
+    group.querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    const key = id === 'optTransport' ? 'transport' : id === 'optPlastic' ? 'plastic' : 'resource';
+    selections[key] = btn.dataset.val;
+  });
+});
+
+function badgeSubText(b){ return b.next ? ('Next badge at ' + b.next + ' pts') : 'Top badge reached 🌳'; }
+function renderUserStatus(user){
+  document.getElementById('ptsDisplay').textContent = user.points;
+  document.getElementById('badgeName').textContent = user.badge.name;
+  document.getElementById('badgeSub').textContent = badgeSubText(user.badge);
+}
+function renderHistory(entries){
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  entries.forEach(e=>{
+    const d = document.createElement('div');
+    d.className = 'history-item';
+    d.innerHTML = `<span>${e.transport} · ${e.plastic} plastic · ${e.resource}</span><span>+5</span>`;
+    list.appendChild(d);
+  });
+}
+
+const TRACKER_SYSTEM = "You are Mitra, an encouraging but honest environmental-education tutor for Indian students. Given a student's daily habit log, write a short (max 60 words) response in Hinglish: acknowledge what they did, give one specific fact about the real-world impact of their choice (numbers welcome), and end with one small, doable suggestion for tomorrow. Do not just say 'good job' — be substantive.";
+
+async function submitTracker(){
+  if(!selections.transport || !selections.plastic || !selections.resource){
+    alert('Pehle teeno options choose karo.');
+    return;
+  }
+  const note = document.getElementById('trackerNote').value.trim();
+  const btn = document.getElementById('trackerSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Thinking…';
+
+  const userText = `Transport: ${selections.transport}. Plastic use: ${selections.plastic}. Resource mindfulness: ${selections.resource}. Extra note: ${note || 'none'}.`;
+  let feedback = '';
+  try{
+    feedback = await callMitra(TRACKER_SYSTEM, userText);
+  }catch(err){
+    feedback = 'AI feedback abhi load nahi ho paya, lekin entry save ho gayi.';
+  }
+  document.getElementById('feedbackBox').textContent = feedback;
+
+  try{
+    const res = await apiPost('/api/tracker', { ...selections, note, feedback });
+    renderUserStatus(res.user);
+    loadHistory();
+  }catch(err){
+    alert(err.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Get AI feedback (+5 points)';
+}
+
+async function loadHistory(){
+  const res = await apiGet('/api/tracker');
+  renderHistory(res.entries);
+}
+
+(async ()=>{
+  try{
+    const me = await apiGet('/api/me');
+    if(!me.user){
+      document.getElementById('loginPrompt').style.display = 'block';
+      return;
+    }
+    document.getElementById('trackerApp').style.display = 'block';
+    renderUserStatus(me.user);
+    loadHistory();
+  }catch(e){
+    document.getElementById('loginPrompt').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>

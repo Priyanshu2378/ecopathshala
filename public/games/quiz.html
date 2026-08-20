@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eco Quiz Challenge — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="games">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">Eco Quiz Challenge</div>
+    <h1>10 rapid questions, real facts</h1>
+    <p>Multiple choice, no timer pressure — just how many you get right.</p>
+  </div>
+
+  <div class="game-shell">
+    <div id="quizIntro" class="game-intro">
+      <div style="font-size:52px;margin-bottom:10px;">🧠</div>
+      <p style="font-size:14.5px;line-height:1.6;color:rgba(16,26,20,0.7);max-width:440px;margin:0 auto 18px;">
+        10 questions picked randomly from a bank of environmental facts, Indian issues, and everyday eco-science.
+      </p>
+      <button class="btn btn-primary" onclick="startQuiz()">Start Quiz →</button>
+      <div style="margin-top:16px;font-size:12px;color:rgba(16,26,20,0.5);" id="highScoreLabel"></div>
+    </div>
+
+    <div id="quizPlay" style="display:none;">
+      <div class="quiz-progress" id="quizProgress"></div>
+      <div class="quiz-question" id="quizQuestion"></div>
+      <div class="quiz-options" id="quizOptions"></div>
+    </div>
+
+    <div id="quizEnd" class="game-end" style="display:none;">
+      <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(16,26,20,0.5);">Score</div>
+      <div class="score-big" id="quizFinalScore">0/10</div>
+      <p style="font-size:14px;color:rgba(16,26,20,0.65);margin:10px 0 20px;" id="quizEndMsg"></p>
+      <div id="quizEndNote" style="font-size:12.5px;color:rgba(16,26,20,0.5);margin-bottom:16px;"></div>
+      <button class="btn btn-primary" onclick="startQuiz()">Play Again</button>
+      <a class="btn btn-ghost" style="margin-left:10px;" href="/games/">All Games</a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — this game works fully offline.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const QUESTION_BANK = [
+  { q:"Which gas is the largest contributor to global warming?", opts:["Oxygen","Carbon dioxide","Nitrogen","Helium"], a:1 },
+  { q:"What does AQI stand for?", opts:["Air Quality Index","Atmospheric Quality Indicator","Air Quantity Index","Annual Quality Insight"], a:0 },
+  { q:"Which Indian river is most affected by tannery pollution near Kanpur?", opts:["Yamuna","Godavari","Ganga","Narmada"], a:2 },
+  { q:"Which of these is NOT biodegradable?", opts:["Banana peel","Plastic bottle","Eggshell","Tea leaves"], a:1 },
+  { q:"What is the main cause of Delhi's severe winter smog?", opts:["Sea breeze","Vehicle emissions + stubble burning","Volcanic activity","Ocean currents"], a:1 },
+  { q:"Which renewable energy source uses sunlight directly?", opts:["Wind","Hydropower","Solar","Geothermal"], a:2 },
+  { q:"What does 'carbon footprint' measure?", opts:["Shoe size", "Total greenhouse gases caused by a person/activity","Distance walked","Tree height"], a:1 },
+  { q:"Which of these helps reduce water stress in cities?", opts:["Paving over lakes","Rainwater harvesting","Cutting all trees","Longer showers"], a:1 },
+  { q:"Which gas layer protects Earth from harmful UV rays?", opts:["Nitrogen layer","Ozone layer","Carbon layer","Hydrogen layer"], a:1 },
+  { q:"What is composting mainly used for?", opts:["Making plastic","Turning organic waste into fertilizer","Purifying water","Generating electricity"], a:1 },
+  { q:"Which Indian city faced a severe 'Day Zero' water crisis in 2019?", opts:["Chennai","Shimla","Guwahati","Jaipur"], a:0 },
+  { q:"E-waste includes which of these?", opts:["Vegetable peels","Old mobile phones","Newspaper","Garden leaves"], a:1 },
+  { q:"What is the '3R' principle in waste management?", opts:["Read, Rest, Repeat","Reduce, Reuse, Recycle","Run, Rise, Repair","Rent, Return, Renew"], a:1 },
+  { q:"Which of these bins usually collects wet/organic waste in Indian municipal systems?", opts:["Blue bin","Black bin","Green bin","Red bin"], a:2 },
+  { q:"What is deforestation's biggest direct effect on climate?", opts:["More rainfall everywhere","Loss of carbon absorption by trees","Cooler temperatures","More biodiversity"], a:1 },
+  { q:"Which of these is a mangrove-loss hotspot in India?", opts:["Shimla","Mumbai coast","Jaipur","Bhopal"], a:1 },
+  { q:"What causes eutrophication in lakes?", opts:["Too much oxygen","Excess nutrients from sewage/fertilizer runoff","Cold water","Too many fish"], a:1 },
+  { q:"Which of these vehicles produces zero tailpipe emissions?", opts:["Petrol car","Diesel truck","Electric vehicle","Diesel bus"], a:2 },
+  { q:"What is 'stubble burning'?", opts:["Burning candles","Burning leftover crop residue after harvest","Burning garbage in bins","Burning forests for hunting"], a:1 },
+  { q:"Which of these best reduces single-use plastic?", opts:["Carrying a reusable bag/bottle","Buying more bottled water","Using more plastic straws","Double-bagging groceries"], a:0 }
+];
+let quizState = { questions:[], idx:0, score:0, locked:false };
+
+function shuffle(arr){ const a = arr.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+async function refreshHighScoreLabel(){
+  const el = document.getElementById('highScoreLabel');
+  try{
+    const res = await apiGet('/api/game-score/quiz/best');
+    el.textContent = res.best > 0 ? ('Your best score: ' + res.best) : '';
+  }catch(e){ el.textContent = 'Login to save your high score.'; }
+}
+refreshHighScoreLabel();
+
+function startQuiz(){
+  quizState = { questions: shuffle(QUESTION_BANK).slice(0,10), idx:0, score:0, locked:false };
+  document.getElementById('quizIntro').style.display = 'none';
+  document.getElementById('quizEnd').style.display = 'none';
+  document.getElementById('quizPlay').style.display = 'block';
+  showQuestion();
+}
+function showQuestion(){
+  quizState.locked = false;
+  const q = quizState.questions[quizState.idx];
+  document.getElementById('quizProgress').textContent = `Question ${quizState.idx+1} of ${quizState.questions.length} · Score: ${quizState.score}`;
+  document.getElementById('quizQuestion').textContent = q.q;
+  const optsEl = document.getElementById('quizOptions');
+  optsEl.innerHTML = '';
+  const order = q.opts.map((text, i)=>({text, i}));
+  order.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = opt.text;
+    btn.onclick = ()=>selectAnswer(opt.i, btn);
+    optsEl.appendChild(btn);
+  });
+}
+function selectAnswer(chosenIdx, btnEl){
+  if(quizState.locked) return;
+  quizState.locked = true;
+  const q = quizState.questions[quizState.idx];
+  const buttons = document.querySelectorAll('.quiz-opt');
+  buttons.forEach((b, domIdx)=>{
+    if(b.textContent === q.opts[q.a]) b.classList.add('correct');
+  });
+  if(chosenIdx === q.a){
+    quizState.score += 1;
+  } else {
+    btnEl.classList.add('wrong');
+  }
+  setTimeout(()=>{
+    quizState.idx += 1;
+    if(quizState.idx >= quizState.questions.length) finishQuiz();
+    else showQuestion();
+  }, 900);
+}
+async function finishQuiz(){
+  document.getElementById('quizPlay').style.display = 'none';
+  document.getElementById('quizEnd').style.display = 'block';
+  document.getElementById('quizFinalScore').textContent = quizState.score + '/' + quizState.questions.length;
+  document.getElementById('quizEndMsg').textContent = quizState.score >= 8 ? "Excellent — you really know your eco-facts!" :
+    quizState.score >= 5 ? "Good effort — a few more rounds and you'll ace it." :
+    "Keep learning — try again to beat your score.";
+  try{
+    const res = await apiPost('/api/game-score', { game:'quiz', score: quizState.score * 10 });
+    document.getElementById('quizEndNote').textContent = `+${res.earned} eco-points earned.`;
+  }catch(e){
+    document.getElementById('quizEndNote').textContent = 'Login to save your score and earn eco-points.';
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Mitra — EcoPaathshala</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="mitra">
+<div id="siteHeader"></div>
+
+<div class="page">
+  <div class="page-head">
+    <div class="tag">AI Mitra</div>
+    <h1>Your study assistant</h1>
+    <p>Ask any homework question, any subject — Mitra also has deep expertise in environmental topics for this app.</p>
+  </div>
+
+  <div class="chat-shell">
+    <div class="chat-window">
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chat-input-row">
+        <input id="chatInput" type="text" placeholder="Ask anything — homework, environment, general doubts…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-primary" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+    <div class="chip-list">
+      <div class="chip" onclick="quickAsk(this)">Explain photosynthesis simply</div>
+      <div class="chip" onclick="quickAsk(this)">Why is the Ganga so polluted?</div>
+      <div class="chip" onclick="quickAsk(this)">Help me solve: 2x + 5 = 15</div>
+      <div class="chip" onclick="quickAsk(this)">What's the difference between weather and climate?</div>
+      <div class="chip" onclick="quickAsk(this)">How do I start an eco-club in college?</div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">EcoPaathshala — AI answers can be imperfect, always verify important facts.</footer>
+
+<script src="/js/theme.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/header.js"></script>
+<script>
+const chatLog = document.getElementById('chatLog');
+const MITRA_SYSTEM = "You are Mitra, a friendly general-purpose study assistant for Indian school and college students — similar to a study-focused AI assistant. You help with homework and questions across ANY subject (math, science, history, languages, coding, general knowledge), explaining step-by-step in simple language. You also have special deep expertise in environmental science and sustainability, since this app focuses on environmental education — bring in concrete Indian examples for those topics. Keep answers concise (under 150 words unless the question needs a worked-out solution), practical, and encouraging. Respond in Hinglish (mix of Hindi and English, Roman script) unless the student writes in pure English, in which case reply in English.";
+
+function addMsg(text, cls){
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.textContent = text;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
+}
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const val = input.value.trim();
+  if(!val) return;
+  addMsg(val, 'user');
+  input.value = '';
+  const loadingEl = addMsg('Mitra is thinking…', 'ai loading');
+  try{
+    const reply = await callMitra(MITRA_SYSTEM, val, 1200);
+    loadingEl.remove();
+    addMsg(reply, 'ai');
+  }catch(err){
+    loadingEl.remove();
+    addMsg('Kuch gadbad ho gayi — server check karo (ANTHROPIC_API_KEY set hai?).', 'ai');
+  }
+}
+function quickAsk(el){
+  document.getElementById('chatInput').value = el.textContent;
+  sendChat();
+}
+if(chatLog.children.length === 0){
+  addMsg("Namaste! Main Mitra hoon 🌱 Homework ho ya environment ka sawaal — kuch bhi poocho.", 'ai');
+}
+</script>
+</body>
+</html>
